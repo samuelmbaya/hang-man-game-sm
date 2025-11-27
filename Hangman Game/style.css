@@ -12,19 +12,22 @@ body {
     align-items: center;
     justify-content: center;
     min-height: 100vh;
-    background: #5E63BA;
+    background: url("https://i.pinimg.com/736x/b8/c0/fa/b8c0fa17bdd42d02e185668c88734336.jpg") no-repeat center center fixed;
+    background-size: cover;
 }
 .container {
     display: flex;
     width: 850px;
     gap: 70px;
     padding: 60px 40px;
-    background: #fff;
+    background: rgba(255, 255, 255, 0.85); /* translucent white */
     border-radius: 10px;
     align-items: flex-end;
     justify-content: space-between;
-    box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.15);
+    backdrop-filter: blur(6px); /* optional: adds a nice frosted glass effect */
 }
+
 .hangman-box img {
     user-select: none;
     max-width: 270px;
@@ -84,7 +87,7 @@ body {
     font-weight: 600;
     border-radius: 4px;
     text-transform: uppercase;
-    background: #5E63BA;
+    background: #ff0000c2;
 }
 .keyboard button {
     padding: 7px;
@@ -95,7 +98,7 @@ body {
     opacity: 0.6;
 }
 :where(.game-modal, .keyboard) button:hover {
-    background: #8286c9;
+    background: #096e00;
 }
 .game-modal {
     position: fixed;
