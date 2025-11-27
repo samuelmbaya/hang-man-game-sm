@@ -1,149 +1,105 @@
-// Selects DOM elements for the game UI components at the start of the script.
-// These are used throughout to manipulate the game's visual state.
-const wordDisplay = document.querySelector(".word-display"); // Container for displaying the word as letter blanks or revealed letters.
-const guessesText = document.querySelector(".guesses-text b"); // Bold element showing wrong guesses count (e.g., "0 / 6").
-const keyboardDiv = document.querySelector(".keyboard"); // Container div for the on-screen keyboard buttons.
-const hangmanImage = document.querySelector(".hangman-box img"); // Image element that updates to show hangman drawing stages.
-const gameModal = document.querySelector(".game-modal"); // Overlay modal for win/loss screens.
-const playAgainBtn = gameModal.querySelector("button"); // Button inside the modal to restart the game.
-
-// === Sound Effects Section ===
-// References to audio elements in the HTML for game feedback sounds.
-// These are played at key events like correct/wrong guesses or win/loss.
-const winSound = document.getElementById("win-sound"); // Sound for victory.
-const loseSound = document.getElementById("lose-sound"); // Sound for defeat.
-const correctSound = document.getElementById("correct-sound"); // Sound for a correct letter guess.
-const wrongSound = document.getElementById("wrong-sound"); // Sound for an incorrect letter guess.
-
-// Utility function to play a sound effect consistently.
-// Resets and plays the audio to avoid overlapping or resuming from midway.
-function playSound(sound) {
-  sound.pause(); // Stops any current playback.
-  sound.currentTime = 0; // Resets playback position to the beginning.
-  sound.play(); // Starts playing the sound.
-}
-
-// Initializing game variables
-// Declares mutable variables for game state and a constant for the guess limit.
-// These track the secret word, correct guesses, and wrong attempts.
-let currentWord, correctLetters, wrongGuessCount; // currentWord: secret word; correctLetters: Set of guessed correct letters; wrongGuessCount: number of incorrect guesses.
-const maxGuesses = 6; // Maximum wrong guesses allowed before loss.
-
-// Reset game state function
-// Called whenever a new game starts to clear previous state and update UI to initial conditions.
-// Ensures the game is fresh for each round.
-const resetGame = () => {
-  correctLetters = new Set(); // Initializes empty Set to track unique correct letters guessed.
-  wrongGuessCount = 0; // Resets wrong guess counter to zero.
-  hangmanImage.src = "images/hangman-0.svg"; // Sets hangman image to initial empty scaffold (no body parts).
-  guessesText.innerText = `${wrongGuessCount} / ${maxGuesses}`; // Updates display to "0 / 6".
-  wordDisplay.innerHTML = currentWord.split("").map(() => `<li class="letter"></li>`).join(""); // Clears and rebuilds word display as empty <li> blanks for each letter in currentWord.
-  keyboardDiv.querySelectorAll("button").forEach(btn => btn.disabled = false); // Re-enables all keyboard buttons for new guesses.
-  gameModal.classList.remove("show"); // Hides the game over modal by removing the 'show' CSS class.
+// Consolidated DOM elements for UI access.
+// Groups all key HTML element references in one object to minimize querySelector calls and improve code organization.
+const elements = {
+  wordDisplay: document.querySelector(".word-display"), // Holds the letter blanks/revealed word as <li> list.
+  guessesText: document.querySelector(".guesses-text b"), // Displays wrong guesses count (e.g., "0 / 6").
+  keyboardDiv: document.querySelector(".keyboard"), // Container for dynamically created letter buttons.
+  hangmanImage: document.querySelector(".hangman-box img"), // Updates to show progressive hangman drawings.
+  gameModal: document.querySelector(".game-modal"), // Popup for win/loss messages and restart.
+  playAgainBtn: document.querySelector(".game-modal button"), // Button to start a new game.
+  hintText: document.querySelector(".hint-text b") // Shows the hint for the current word.
 };
 
-// Stop all sounds immediately
-// Utility function to silence all audio effects at once, e.g., before restarting.
-// Prevents overlapping sounds during transitions.
-const stopAllSounds = () => {
-  [winSound, loseSound, correctSound, wrongSound].forEach(sound => { // Array of all sound elements for iteration.
-    sound.pause(); // Pauses each sound.
-    sound.currentTime = 0; // Resets each to start position.
-  });
+// Sound elements for feedback.
+// References to HTML <audio> elements by ID for quick access during events.
+const sounds = {
+  win: document.getElementById("win-sound"), // Plays on victory.
+  lose: document.getElementById("lose-sound"), // Plays on defeat.
+  correct: document.getElementById("correct-sound"), // Plays on right letter guess.
+  wrong: document.getElementById("wrong-sound") // Plays on wrong letter guess.
 };
 
-// Get a random word from wordList
-// Function to select and set up a new secret word with its hint, then reset the game.
-// Assumes 'wordList' is a global array of {word, hint} objects defined elsewhere.
+// Play a specific sound (reset and play).
+// Utility to handle individual sound playback: pauses, resets, and plays to ensure clean audio.
+const playSound = (type) => {
+  const sound = sounds[type];
+  sound.pause(); sound.currentTime = 0; sound.play(); // Chain for brevity: stop, reset, start.
+};
+
+// Stop all sounds.
+// Silences every audio element to prevent overlap, e.g., before restarting.
+const stopSounds = () => Object.values(sounds).forEach(s => { s.pause(); s.currentTime = 0; }); // Iterates object values (sounds) and resets each.
+
+// Game state.
+// Global variables for tracking word, guesses, and errors; initialized empty.
+let currentWord = '', correctLetters = [], wrongGuessCount = 0; // currentWord: secret uppercase string; correctLetters: array of guessed letters; wrongGuessCount: error tally.
+const maxGuesses = 6; // Hard limit for wrong guesses before loss.
+
+// Select random word, set hint, and reset state/UI in one go.
+// Combines word selection, hint update, and full game reset for a single new round.
 const getRandomWord = () => {
-  const { word, hint } = wordList[Math.floor(Math.random() * wordList.length)]; // Destructures random object from wordList; Math.random() picks index 0 to length-1.
-  currentWord = word.toUpperCase(); // Sets global currentWord to uppercase version for consistency.
-  document.querySelector(".hint-text b").innerText = hint; // Updates the bold hint text in the DOM.
-  resetGame(); // Calls reset to initialize UI with the new word.
+  const { word, hint } = wordList[Math.floor(Math.random() * wordList.length)]; // Picks random {word, hint} from global wordList.
+  currentWord = word.toUpperCase(); // Normalizes to uppercase.
+  elements.hintText.innerText = hint; // Updates UI hint.
+  correctLetters = []; wrongGuessCount = 0; // Clears tracking arrays/counters.
+  elements.hangmanImage.src = "images/hangman-0.svg"; // Resets to empty hangman.
+  elements.guessesText.innerText = `0 / ${maxGuesses}`; // Shows fresh guess count.
+  elements.wordDisplay.innerHTML = currentWord.split('').map(() => `<li class="letter"></li>`).join(''); // Rebuilds blank slots.
+  elements.keyboardDiv.querySelectorAll('button').forEach(btn => btn.disabled = false); // Reactivates buttons.
+  elements.gameModal.classList.remove('show'); // Hides end modal.
 };
 
-// Handle game over
-// Manages win/loss conclusion: plays sound, then after delay, shows modal with appropriate message and image.
-// The delay allows the final sound to play without immediate interruption.
+// End game: sound + delayed modal.
+// Triggers audio and shows outcome modal after brief pause for sound.
 const gameOver = (isVictory) => {
-  if (isVictory) playSound(winSound); // Plays win sound if victory.
-  else playSound(loseSound); // Plays lose sound otherwise.
-
-  setTimeout(() => { // Delays modal display by 400ms.
-    const modalText = isVictory ? `You found the word:` : 'The correct word was:'; // Sets dynamic text based on outcome.
-    gameModal.querySelector("img").src = `images/${isVictory ? 'victory' : 'lost'}.gif`; // Updates modal image to victory or lost GIF.
-    gameModal.querySelector("h4").innerText = isVictory ? 'Congrats!' : 'Game Over!'; // Sets modal heading.
-    gameModal.querySelector("p").innerHTML = `${modalText} <b>${currentWord}</b>`; // Sets modal paragraph with bolded word.
-    gameModal.classList.add("show"); // Shows modal by adding 'show' CSS class.
+  playSound(isVictory ? 'win' : 'lose'); // Plays win or lose sound based on result.
+  setTimeout(() => { // 400ms delay lets sound finish before UI popup.
+    const key = isVictory ? 'victory' : 'lost', title = isVictory ? 'Congrats!' : 'Game Over!', text = isVictory ? 'You found the word:' : 'The correct word was:'; // Ternary vars for dynamic content.
+    elements.gameModal.querySelector('img').src = `images/${key}.gif`; // Sets celebratory or sad GIF.
+    elements.gameModal.querySelector('h4').innerText = title; // Modal heading.
+    elements.gameModal.querySelector('p').innerHTML = `${text} <b>${currentWord}</b>`; // Message with bold word reveal.
+    elements.gameModal.classList.add('show'); // Displays modal.
   }, 400);
 };
 
-// What it does: Processes the guess by checking if the letter
-//  is in the word, playing sounds, updating display, 
-// and disabling the button.
-const initGame = (button, clickedLetter) => {
-  clickedLetter = clickedLetter.toUpperCase(); // Ensures letter is uppercase for matching.
-
-  //What it does: Branches based on whether the guessed
-  //  letter appears in the currentWord.
-  if (currentWord.includes(clickedLetter)) { // Checks if letter is present in the secret word.
-    playSound(correctSound); // Plays positive feedback sound.
-    [...currentWord].forEach((letter, index) => { // Spreads word into array and loops over each position with index.
-      if (letter === clickedLetter) { // For positions matching the guess:
-        const li = wordDisplay.querySelectorAll("li")[index]; // Gets the specific blank <li> element.
-        li.innerText = letter; // Reveals the letter.
-        li.classList.add("guessed"); // Adds CSS class for visual styling (e.g., color).
-      }
-    });
-    correctLetters.add(clickedLetter); // Adds to Set of correct unique letters (Sets auto-deduplicate).
-  } else { // Wrong guess branch.
-    playSound(wrongSound); // Plays negative feedback sound.
-    wrongGuessCount++; // Increments wrong guess counter.
-    hangmanImage.src = `images/hangman-${wrongGuessCount}.svg`; // Updates image to next hangman stage.
+// Handle guess: update UI, check win/loss.
+// Core logic for processing a letter: reveals matches, advances errors, or ends game.
+const initGame = (button, letter) => {
+  letter = letter.toUpperCase(); button.disabled = true; // Normalize and lock button.
+  if (currentWord.includes(letter)) { // Correct guess path.
+    playSound('correct'); // Audio cue.
+    [...currentWord].forEach((l, i) => l === letter && (elements.wordDisplay.querySelectorAll('li')[i].innerText = l, elements.wordDisplay.querySelectorAll('li')[i].classList.add('guessed'))); // Reveal all instances in one chained loop (comma operator for brevity).
+    correctLetters.push(letter); // Tracks guess (array allows duplicates, but win check uses unique count).
+  } else { // Wrong guess path.
+    playSound('wrong'); wrongGuessCount++; elements.hangmanImage.src = `images/hangman-${wrongGuessCount}.svg`; // Audio, increment, update image.
   }
-
-  button.disabled = true; // Disables the button to prevent re-guessing the same letter.
-  guessesText.innerText = `${wrongGuessCount} / ${maxGuesses}`; // Refreshes wrong guesses display.
-
-  // Win condition: all unique letters guessed
-  const uniqueLetters = new Set(currentWord.split("")); // Creates Set of unique letters in word for win check.
-  if (wrongGuessCount === maxGuesses) return gameOver(false); // Ends game as loss if max wrong guesses reached (early return).
-  if (correctLetters.size === uniqueLetters.size) return gameOver(true); // Ends game as win if all unique letters guessed (early return).
+  elements.guessesText.innerText = `${wrongGuessCount} / ${maxGuesses}`; // Refreshes counter.
+  if (wrongGuessCount === maxGuesses) return gameOver(false); // Loss: max errors.
+  if (correctLetters.length === new Set(currentWord).size) return gameOver(true); // Win: guessed letters match unique word letters count.
 };
 
-// Create keyboard buttons
-// Dynamically generates 26 on-screen buttons for A-Z after DOM loads.
-// This runs once to build the interactive keyboard.
-for (let i = 97; i <= 122; i++) { // Loops over ASCII codes for lowercase a-z.
-  const button = document.createElement("button"); // Creates a new <button> element.
-  const letter = String.fromCharCode(i).toUpperCase(); // Converts code to uppercase letter (e.g., 97 -> 'A').
-  button.innerText = letter; // Sets button text to the letter.
-  keyboardDiv.appendChild(button); // Appends button to keyboard container.
-  button.addEventListener("click", (e) => initGame(e.target, letter)); // Attaches click handler to process guess.
+// Build on-screen keyboard.
+// Generates A-Z buttons once on load, with click handlers.
+for (let i = 97; i <= 122; i++) { // ASCII loop for lowercase a-z.
+  const btn = document.createElement('button'), letter = String.fromCharCode(i).toUpperCase(); // Create and label button.
+  btn.innerText = letter; elements.keyboardDiv.appendChild(btn); // Add to DOM.
+  btn.addEventListener('click', () => initGame(btn, letter)); // Binds guess handler.
 }
 
-// What it does: Listens for keydown events, converts to uppercase,
-//  finds the matching on-screen button if available and enabled, 
-// and triggers the guess function.
-// Adds support for physical keyboard input; runs once to attach listener.
-document.addEventListener("keydown", (event) => { // Listens for any key press on the document.
-  const letter = event.key.toUpperCase(); // Converts pressed key to uppercase.
-  if (letter >= 'A' && letter <= 'Z') { // Validates it's a letter A-Z.
-    const button = [...keyboardDiv.querySelectorAll("button")].find(btn => btn.innerText === letter); // Finds matching on-screen button.
-    if (button && !button.disabled) { // If button exists and is enabled:
-      initGame(button, letter); // Simulates click by calling guess handler.
-    }
+// Physical keyboard support.
+// Listens for key presses to simulate button clicks.
+document.addEventListener('keydown', e => { // Global event listener.
+  const letter = e.key.toUpperCase(); // Normalize.
+  if (letter >= 'A' && letter <= 'Z') { // Letter validation.
+    const btn = [...elements.keyboardDiv.querySelectorAll('button')].find(b => b.innerText === letter); // Locate matching button.
+    btn && !btn.disabled && initGame(btn, letter); // Conditional trigger if valid.
   }
 });
 
-// Play again button
-// Attaches click listener to the restart button in the modal.
-// This runs once to enable restarting.
-playAgainBtn.addEventListener("click", () => { // Handles modal button click.
-  stopAllSounds(); // Silences any playing audio.
-  getRandomWord(); // Picks new word and resets game.
-});
+// Restart on play again.
+// Binds modal button to full reset.
+elements.playAgainBtn.addEventListener('click', () => { stopSounds(); getRandomWord(); }); // Stop audio, new round.
 
-// Start game
-// Initializes the first round when the script loads.
-getRandomWord(); // Selects initial word and sets up game.
+// Init first game.
+// Starts the game immediately on script load.
+getRandomWord(); // Selects initial word and setup.
